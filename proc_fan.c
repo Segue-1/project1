@@ -13,7 +13,7 @@
 
 int main(int argc, char *argv[])
 {
-	printf("Testing git...");
+	printf("Add, commit, push, pull.");
 
 	return 0;
 }
