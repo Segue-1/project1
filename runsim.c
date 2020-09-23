@@ -1,7 +1,9 @@
 /****************************************
  * Author: Collin Smith
- * Description:
- * Date:
+ * Description: A program that runs other programs.  Currently it only runs the programs that are passed to it.  
+ * Example: ./runsim.exe -n 5 < testing.data
+ * This will just run the programs and arguments listed in testing data.
+ * Date: 9/22/2020
  * ****************************************/
 
 #include <sys/types.h>
@@ -20,66 +22,63 @@
 
 
 char **makeargv (char *string) {
-
+	/*This function returns an array with arguments*/
         char *sub_string;
         char **args = malloc(16 * sizeof(char));
-
+	int i = 0;
+	
+	/*Remove spaces */
         sub_string = strtok(string, " ");
-
-        int i = 0;
+    	
         while(sub_string != NULL) {
                 args[i] = malloc(16 * sizeof(char));
                 args[i] = sub_string;
                 sub_string = strtok(NULL, " ");
                 i += 1;
         }
-
+	/*Add NULL to end of string. */
         args[i] = NULL;
         return args;
 }
 
 
-int proc_fan(int n) {
-	int i;
+void proc_fan(int n) {
 	pid_t childpid = 0;
 	int pr_count = 0;
 	char command[MAX_CANON];
 	char** arg_arr;
 	
-
+	/*Read from stdin until EOF */
 	while(fgets(command, MAX_CANON, stdin)) {
-        	if (pr_count == n) {
-		wait(NULL);
-		pr_count -=1;
+        	/*If pr_count is pr_limit(which is n), then wait for child to finish and decrement count. */
+		if (pr_count == n) {
+			wait(NULL);
+			pr_count -=1;
 		}
 	
-	
-	if((childpid = fork()) == 0) {
-		strtok(command, "\n");
-		arg_arr = makeargv(command);
-		execvp(arg_arr[0], arg_arr);
-		perror("Child failed to execvp the command");
-		return 1;
+		/*Call fork, if child then execute arg[0], name of program to run. */
+		if((childpid = fork()) == 0) {
+			/*Get rid of \n */
+			strtok(command, "\n");
+			/*Get argument from makeargv. */
+			arg_arr = makeargv(command);
+			/*Execute, arg_arr[0] is name and arg_arr is argument. */
+			execvp(arg_arr[0], arg_arr);
+			perror("Execvp failed!");
+			exit(0);
+		}
+		/*If fork failed use perror. */
+		if (childpid == -1) {
+			perror("Fork failed!\n");
+			exit(0);
+		}
+		/*Wait for children to finish. */
+		if (childpid > 0) {
+			while (wait(NULL) > 0);
+		}
+
+	pr_count+= 1;
 	}
-
-	if (childpid == -1) {
-		perror("Child failed to fork\n");
-		return 1;
-	}
-
-	pr_count += 1;
-
-	if(waitpid(-1, NULL, WNOHANG) > 0) {
-		pr_count -= 1;
-	}
-
-	if (childpid > 0) {
-		while (wait(NULL) > 0);
-	}
-	}
-
-	return 0;        
-
 }
 
 int main (int argc, char *argv[]) {
@@ -87,11 +86,8 @@ int main (int argc, char *argv[]) {
         int i, n, option;
         int pr_count = 0;
 
-
-        /*Calculate true number of arguments passed through command line. */
-
+	/*Check for valid number of command line arguments. */
         if (argc != 3) {
-                /* check for valid number of command-line arguments */
                 fprintf(stderr, "Error: %d parameters passed.\n", argc - 1);
                 printf("Please enter 1 option followed by 1 argument.\n");
 		printf("Example: ./runsim.exe -n 5\n");
@@ -101,8 +97,10 @@ int main (int argc, char *argv[]) {
 	/*Convert char string from argv[1] to int. */
         n = atoi(argv[2]);
 	
+	/*nflag is used to make sure multiple options are entered twice. */
 	int nflag = 0;
-
+	
+	/*Get options, only n is valid, make sure only 1 is entered, if so call proc_fan(). */
         while ((option = getopt(argc, argv, "n")) != -1){
                 switch (option) {
                         case 'n' :
