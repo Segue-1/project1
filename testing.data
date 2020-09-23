@@ -1,0 +1,5 @@
+./testsim.exe 4 5
+./testsim.exe 3 2
+./testsim.exe 2 6
+./testsim.exe 9 1
+./testsim.exe 12 15

@@ -5,28 +5,86 @@
  * ****************************************/
 
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <limits.h>
+#include <err.h>
+#include <ctype.h>
+#include <string.h>
+#include <stddef.h>
+#define MAX_CANON 255
 
-void proc_fan(int n) {
+
+
+char **makeargv (char *string) {
+
+        char *sub_string;
+        char **args = malloc(16 * sizeof(char));
+
+        sub_string = strtok(string, " ");
+
+        int i = 0;
+        while(sub_string != NULL) {
+                args[i] = malloc(16 * sizeof(char));
+                args[i] = sub_string;
+                sub_string = strtok(NULL, " ");
+                i += 1;
+        }
+
+        args[i] = NULL;
+        return args;
+}
+
+
+int proc_fan(int n) {
 	int i;
 	pid_t childpid = 0;
+	int pr_count = 0;
+	char command[MAX_CANON];
+	char** arg_arr;
 	
-        for (i = 1; i < n; i++) {
-                if ((childpid = fork()) <= 0){
-                        break;
-                }
-        }
-        fprintf(stderr, "i:%d process ID:%ld parent ID:%ld child ID:%ld\n",
-                i, (long)getpid(), (long)getppid(), (long)childpid);
+
+	while(fgets(command, MAX_CANON, stdin)) {
+        	if (pr_count == n) {
+		wait(NULL);
+		pr_count -=1;
+		}
+	
+	
+	if((childpid = fork()) == 0) {
+		strtok(command, "\n");
+		arg_arr = makeargv(command);
+		execvp(arg_arr[0], arg_arr);
+		perror("Child failed to execvp the command");
+		return 1;
+	}
+
+	if (childpid == -1) {
+		perror("Child failed to fork\n");
+		return 1;
+	}
+
+	pr_count += 1;
+
+	if(waitpid(-1, NULL, WNOHANG) > 0) {
+		pr_count -= 1;
+	}
+
+	if (childpid > 0) {
+		while (wait(NULL) > 0);
+	}
+	}
+
+	return 0;        
 
 }
 
 int main (int argc, char *argv[]) {
         pid_t childpid = 0;
-        int i, n, pr_limit, option;
+        int i, n, option;
         int pr_count = 0;
 
 
@@ -42,7 +100,6 @@ int main (int argc, char *argv[]) {
 	
 	/*Convert char string from argv[1] to int. */
         n = atoi(argv[2]);
-        pr_limit = atoi(argv[2]);
 	
 	int nflag = 0;
 
@@ -58,7 +115,7 @@ int main (int argc, char *argv[]) {
 					nflag++;
 				}
 								
-				proc_fan(pr_limit);
+				proc_fan(n);
 				break;
 			default:
 				fprintf(stderr, "-n is only valid option.\n", argv[0]);
